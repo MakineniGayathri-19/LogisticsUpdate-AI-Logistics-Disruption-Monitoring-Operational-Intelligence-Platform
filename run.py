@@ -1,6 +1,6 @@
 """One-Command Runner for LogisticsUpdate AI.
 Starts both the FastAPI Backend and Streamlit Frontend in a single terminal.
-Automatically uses .venv if present, even if not manually activated.
+Automatically clears busy ports and uses .venv if present.
 Press Ctrl+C to stop both servers simultaneously.
 """
 import os
@@ -18,10 +18,27 @@ import time
 import subprocess
 import signal
 
+def free_port(port: int):
+    """Cleanly terminate any stale process holding the port."""
+    try:
+        output = subprocess.check_output(["lsof", "-ti", f":{port}"], stderr=subprocess.DEVNULL).decode().strip()
+        if output:
+            for pid_str in output.split("\n"):
+                pid = int(pid_str.strip())
+                if pid != os.getpid():
+                    os.kill(pid, signal.SIGKILL)
+            time.sleep(0.5)
+    except Exception:
+        pass
+
 def main():
     print("==================================================================")
     print("🚢 LogisticsUpdate AI – Starting Unified Application Platform")
     print("==================================================================")
+
+    # Clean any stale processes on ports 8000 & 8501
+    free_port(8000)
+    free_port(8501)
 
     python_exe = str(VENV_PYTHON) if VENV_PYTHON.exists() else sys.executable
 
