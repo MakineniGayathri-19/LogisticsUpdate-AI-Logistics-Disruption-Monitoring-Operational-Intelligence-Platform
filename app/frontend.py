@@ -78,6 +78,30 @@ st.markdown(
 
 API_BASE = os.getenv("API_BASE_URL", "http://127.0.0.1:8000/api")
 
+# Automatically launch backend in background if not already active
+def _ensure_backend_running():
+    try:
+        res = requests.get(f"{API_BASE}/health", timeout=1.5)
+        if res.status_code == 200:
+            return
+    except Exception:
+        pass
+
+    try:
+        import threading
+        import time
+        import uvicorn
+        from app.main import app as fastapi_app
+        def run_uvicorn():
+            uvicorn.run(fastapi_app, host="127.0.0.1", port=8000, log_level="warning")
+        t = threading.Thread(target=run_uvicorn, daemon=True)
+        t.start()
+        time.sleep(1.5)
+    except Exception:
+        pass
+
+_ensure_backend_running()
+
 # ---------------------------------------------------------------------------
 # API Query Helpers
 # ---------------------------------------------------------------------------
