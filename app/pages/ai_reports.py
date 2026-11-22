@@ -41,24 +41,11 @@ def render(api_get, api_post):
             active_report = st.session_state.get("latest_report")
             if active_report:
                 st.markdown("---")
-                st.markdown(
-                    f"""
-                    <div style="background-color: #0F172A; border: 1px solid #334155; padding: 14px 18px; border-radius: 8px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
-                        <div>
-                            <span style="background-color: #1E3E62; color: #38BDF8; padding: 3px 10px; border-radius: 4px; font-size: 0.8rem; font-weight: bold;">
-                                PROVIDER: {active_report.get('llm_provider')}
-                            </span>
-                            <span style="color: #94A3B8; font-size: 0.8rem; margin-left: 12px;">
-                                Generated: {active_report.get('generated_at', '')[:19]}
-                            </span>
-                        </div>
-                        <span style="color: #10B981; font-size: 0.85rem; font-weight: bold;">
-                            ✓ Verified 13-Section Compliance
-                        </span>
-                    </div>
-                    """,
-                    unsafe_allow_html=True
-                )
+                with st.container(border=True):
+                    provider_col, generated_col, status_col = st.columns(3)
+                    provider_col.metric("LLM Provider", active_report.get("llm_provider") or "Unknown")
+                    generated_col.metric("Generated", active_report.get("generated_at", "")[:19] or "Unknown")
+                    status_col.metric("Compliance", "13 sections ✓")
 
                 content = active_report.get("content", "")
                 st.text_area("Full Executive Brief Content", content, height=450)

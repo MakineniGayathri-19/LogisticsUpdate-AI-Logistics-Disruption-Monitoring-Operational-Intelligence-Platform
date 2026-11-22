@@ -11,6 +11,8 @@ from backend.services.collect_service import run_collection
 from backend.services.report_service import generate_report_for_event, generate_pdf_report
 from backend.services.event_comparison import compare_disruption_with_history
 from backend.services.memento_manager import get_memento_status, store_operational_response
+from backend.services.memento_manager import get_all_stored_events
+from utils.validators import is_valid_url
 
 router = APIRouter()
 
@@ -120,6 +122,8 @@ async def list_sources():
 @router.post("/sources")
 async def add_source(payload: SourceCreate):
     """Register a new public monitoring feed URL."""
+    if not is_valid_url(str(payload.url)):
+        raise HTTPException(status_code=422, detail="Source URL must be a valid http:// or https:// URL")
     return repositories.add_source(payload.model_dump())
 
 @router.delete("/sources/{source_id}")
@@ -137,7 +141,7 @@ async def delete_source(source_id: str):
 @router.get("/historical-events", response_model=List[Dict[str, Any]])
 async def list_historical():
     """Retrieve archived historical events with past responses and outcomes."""
-    return repositories.get_all_historical_events()
+    return get_all_stored_events()
 
 @router.post("/historical-events")
 async def add_historical(payload: HistoricalEventCreate):
@@ -147,11 +151,14 @@ async def add_historical(payload: HistoricalEventCreate):
 @router.post("/historical-events/response")
 async def record_operational_response(payload: OperationalResponseCreate):
     """Store mitigation response and observed outcome for an event."""
-    return store_operational_response(
-        event_id=payload.event_id,
-        response=payload.response,
-        outcome=payload.outcome
-    )
+    try:
+        return store_operational_response(
+            event_id=payload.event_id,
+            response=payload.response,
+            outcome=payload.outcome
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
 
 @router.post("/compare/{event_id}")
 async def compare(event_id: str):

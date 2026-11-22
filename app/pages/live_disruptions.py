@@ -4,22 +4,34 @@ detailed card/table inspection, and instant AI brief synthesis.
 """
 import streamlit as st
 import pandas as pd
+from utils.config import settings
+from utils.validators import is_valid_url
 
 def render(api_get, api_post):
     st.markdown('<div class="page-title">⚡ Live Logistics Disruptions Stream</div>', unsafe_allow_html=True)
     st.markdown('<div class="page-subtitle">Real-time public disruption alerts harvested across global maritime, rail, and transit hubs.</div>', unsafe_allow_html=True)
+    if not settings.is_firecrawl_active:
+        st.info(
+            "Demo mode: FIRECRAWL_API_KEY is not configured, so collection creates example updates "
+            "instead of fetching live website content."
+        )
 
     # Top Trigger & Actions Bar
-    col_act1, col_act2 = st.columns([3, 1])
-    with col_act2:
+    _, col_act = st.columns([3, 1])
+    with col_act:
         if st.button("🔄 Trigger Live Collection", use_container_width=True, type="primary"):
             with st.spinner("Scraping sources and running data processing pipeline..."):
                 res = api_post("collect")
-                if res and res.status_code == 200:
-                    st.success(f"Pipeline executed! Ingested {res.json().get('stored', 0)} new records.")
-                    st.rerun()
+                if res is None:
+                    st.error("Could not reach the backend. Check the API connection and try again.")
+                elif res.ok:
+                    result = res.json()
+                    if result.get("status") == "success":
+                        st.success(f"Pipeline completed. Stored {result.get('stored', 0)} records.")
+                    else:
+                        st.warning(result.get("message", "The collection completed without new records."))
                 else:
-                    st.warning("Collection triggered (running in demo mode if keys unset).")
+                    st.error(f"Collection failed (HTTP {res.status_code}): {res.text[:300]}")
 
     disruptions = api_get("disruptions") or []
 
@@ -60,7 +72,7 @@ def render(api_get, api_post):
         sev_order = {"Critical": 4, "High": 3, "Medium": 2, "Low": 1, "Unknown": 0}
         filtered.sort(key=lambda x: sev_order.get(str(x.get("severity")).capitalize(), 0), reverse=True)
 
-    st.caption(f"Displaying **{len(filtered)}** active disruption records (out of {len(disruptions)} total)")
+    st.caption(f"Displaying **{len(filtered)}** disruption records (out of {len(disruptions)} total)")
 
     view_mode = st.radio("Display Format", ["Detailed Card View", "Tabular Grid View"], horizontal=True)
 
@@ -77,38 +89,38 @@ def render(api_get, api_post):
             st.info("No disruptions match the selected filters.")
         for item in filtered:
             sev = item.get("severity", "Unknown")
-            badge_color = "#DC2626" if sev == "Critical" else "#EA580C" if sev == "High" else "#D97706" if sev == "Medium" else "#2563EB"
-            is_demo = item.get("is_demo", False)
+            is_demo = bool(item.get("is_demo")) or (
+                not settings.is_firecrawl_active
+                and str(item.get("title", "")).startswith("Operational Disruption Update from ")
+            )
+            source_url = item.get("source_url", "")
 
-            with st.container():
-                st.markdown(
-                    f"""
-                    <div style="background-color: #0F172A; border: 1px solid #334155; border-left: 5px solid {badge_color}; padding: 16px; border-radius: 8px; margin-bottom: 14px;">
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <div>
-                                <span style="background-color: {badge_color}; color: #ffffff; padding: 3px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold;">{sev.upper()}</span>
-                                <span style="background-color: #1E293B; color: #94A3B8; padding: 3px 8px; border-radius: 4px; font-size: 0.75rem; margin-left: 6px;">{item.get('category')}</span>
-                                {'<span style="background-color: #374151; color: #FBBF24; padding: 3px 6px; border-radius: 4px; font-size: 0.70rem; margin-left: 6px;">DEMO DATA</span>' if is_demo else ''}
-                            </div>
-                            <span style="color: #94A3B8; font-size: 0.8rem;">🕒 {item.get('collected_at', '')[:19]}</span>
-                        </div>
-                        <h4 style="color: #F8FAFC; margin-top: 10px; margin-bottom: 6px;">{item.get('title')}</h4>
-                        <p style="color: #CBD5E1; font-size: 0.9rem; line-height: 1.4;">{item.get('description')}</p>
-                        <div style="display: flex; gap: 20px; font-size: 0.85rem; color: #94A3B8; margin-top: 10px;">
-                            <span>📍 <b>Location:</b> {item.get('location') or 'Global / Unspecified'}</span>
-                            <span>📰 <b>Source:</b> <a href="{item.get('source_url')}" target="_blank" style="color: #38BDF8;">{item.get('source_name')}</a></span>
-                        </div>
-                    </div>
-                    """,
-                    unsafe_allow_html=True
-                )
+            with st.container(border=True):
+                demo_label = " · DEMO DATA" if is_demo else ""
+                st.markdown(f"**{sev.upper()} · {item.get('category', 'Other')}{demo_label}**")
+                st.subheader(item.get("title") or "Untitled disruption")
+                st.write(item.get("description") or "No description available.")
 
-                c1, c2, c3 = st.columns([2, 1, 1])
-                with c3:
-                    if st.button("🤖 Generate AI Brief", key=f"gen_{item.get('id')}", use_container_width=True):
-                        with st.spinner("Synthesizing 13-section operational brief..."):
-                            res = api_post("reports/generate", {"event_id": item.get("id")})
-                            if res and res.status_code == 200:
-                                st.success("Intelligence brief synthesized! Navigate to **AI Operational Reports** to inspect.")
-                            else:
-                                st.error("Failed to generate brief.")
+                meta_col, source_col = st.columns([3, 1])
+                with meta_col:
+                    st.caption(
+                        f"📍 {item.get('location') or 'Global / Unspecified'}"
+                        f"  ·  📰 {item.get('source_name') or 'Unknown source'}"
+                        f"  ·  🕒 {str(item.get('collected_at') or 'Unknown')[:19]}"
+                    )
+                with source_col:
+                    if is_valid_url(source_url):
+                        st.link_button("Open source", source_url, use_container_width=True)
+                    else:
+                        st.caption("Source link unavailable")
+
+                if st.button("🤖 Generate AI Brief", key=f"gen_{item.get('id')}", type="primary"):
+                    with st.spinner("Synthesizing 13-section operational brief..."):
+                        res = api_post("reports/generate", {"event_id": item.get("id")})
+                    if res and res.ok:
+                        st.session_state["latest_report"] = res.json()
+                        st.success("Brief generated. Open **AI Operational Reports** to view and download it.")
+                    elif res:
+                        st.error(f"Brief generation failed (HTTP {res.status_code}): {res.text[:300]}")
+                    else:
+                        st.error("Could not reach the backend. Check the API connection and try again.")

@@ -87,6 +87,7 @@ def collect_from_single_source(source: Dict[str, Any]) -> Tuple[List[Dict[str, A
                 "published_date": datetime.now(timezone.utc).isoformat(),
             }
         record["collected_at"] = datetime.now(timezone.utc).isoformat()
+        record["is_demo"] = True
         return [record], None
 
     # Real Firecrawl SDK integration

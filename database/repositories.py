@@ -53,6 +53,10 @@ def create_disruption(data: Dict) -> Dict:
             )
         ).scalar_one_or_none()
         if existing:
+            if data.get("is_demo") and not existing.is_demo:
+                existing.is_demo = True
+                db.commit()
+                db.refresh(existing)
             return _model_to_dict(existing)
 
         pub_date = data.get("published_date")

@@ -232,9 +232,15 @@ def retrieve_previous_responses(category: Optional[str] = None, location: Option
 def store_operational_response(event_id: str, response: str, outcome: str) -> Dict[str, Any]:
     """Store an operational mitigation response and observed outcome for an event."""
     from database import repositories
+    historical_event = repositories.get_historical_event_by_id(event_id)
+    historical_event_id = historical_event.get("id") if historical_event else None
+    disruption = repositories.get_disruption_by_id(event_id)
+    disruption_id = disruption.get("id") if disruption else None
+    if not historical_event_id and not disruption_id:
+        raise ValueError(f"No historical event or disruption found for id '{event_id}'")
     return repositories.add_operational_response(
-        historical_event_id=event_id,
-        disruption_id=event_id,
+        historical_event_id=historical_event_id,
+        disruption_id=disruption_id,
         response=clean_text(response),
         outcome=clean_text(outcome)
     )

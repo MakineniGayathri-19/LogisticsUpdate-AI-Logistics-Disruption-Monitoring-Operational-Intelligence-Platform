@@ -201,6 +201,10 @@ def process_raw_records(records: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         df["published_date"] = None
 
     df["published_date"] = df["published_date"].apply(clean_and_normalize_date)
+    if "is_demo" not in df.columns:
+        df["is_demo"] = False
+    else:
+        df["is_demo"] = df["is_demo"].fillna(False).astype(bool)
     df["collected_at"] = datetime.now(timezone.utc).isoformat()
     df["status"] = "Active"
     df["event_id"] = [uuid.uuid4().hex[:12] for _ in range(len(df))]
@@ -209,7 +213,7 @@ def process_raw_records(records: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     # Select standard output columns
     output_cols = [
         "event_id", "title", "description", "category", "location",
-        "severity", "status", "source_name", "source_url", "published_date", "collected_at"
+        "severity", "status", "source_name", "source_url", "published_date", "collected_at", "is_demo"
     ]
     cleaned_df = df[output_cols]
 

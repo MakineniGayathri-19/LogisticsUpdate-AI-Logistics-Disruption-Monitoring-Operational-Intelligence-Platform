@@ -34,6 +34,18 @@ def test_duplicate_record_removal():
     cleaned = process_raw_records(raw)
     assert len(cleaned) == 1
 
+def test_demo_provenance_is_preserved():
+    """Keep the demo marker when raw records are cleaned and normalized."""
+    raw = [{
+        "title": "Simulated Port Closure",
+        "content": "Example content describing an operational port closure.",
+        "source_url": "https://example.com/demo",
+        "is_demo": True
+    }]
+    cleaned = process_raw_records(raw)
+    assert len(cleaned) == 1
+    assert cleaned[0]["is_demo"] is True
+
 def test_rule_based_severity_assignment():
     """Verify evidence-based severity keywords."""
     sev1, just1 = assign_rule_based_severity("Terminal Closure Notice", "Port suspended operations due to hurricane")

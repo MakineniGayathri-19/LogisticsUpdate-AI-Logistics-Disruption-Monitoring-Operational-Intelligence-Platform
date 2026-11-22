@@ -20,9 +20,19 @@ def fetch_and_store(app: "FirecrawlApp", url: str) -> Path:
     """Fetch a URL and store the raw HTML.
     Returns the path to the saved file.
     """
-    # Simple crawl – get HTML content
-    result = app.scrape_url(url, params={"format": "html"})
-    html = result.get("data", "")
+    # Scrape markdown for a stable, text-focused raw payload.
+    result = app.scrape_url(
+        url,
+        params={"formats": ["markdown"], "onlyMainContent": True},
+    )
+    if hasattr(result, "model_dump"):
+        result = result.model_dump()
+    if isinstance(result, dict):
+        html = result.get("markdown") or (result.get("data") or {}).get("markdown") or ""
+    else:
+        html = str(result or "")
+    if not html:
+        raise ValueError(f"Firecrawl returned no content for {url}")
     timestamp = int(time.time())
     safe_name = url.replace("https://", "").replace("http://", "").replace("/", "_")
     filename = f"{safe_name}_{timestamp}.html"
