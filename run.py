@@ -1,20 +1,29 @@
 """One-Command Runner for LogisticsUpdate AI.
 Starts both the FastAPI Backend and Streamlit Frontend in a single terminal.
+Automatically uses .venv if present, even if not manually activated.
 Press Ctrl+C to stop both servers simultaneously.
 """
+import os
 import sys
-import time
-import subprocess
-import signal
-import webbrowser
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent
+VENV_PYTHON = BASE_DIR / ".venv" / "bin" / "python"
+
+# If user ran with system/conda python instead of .venv, re-launch using .venv python
+if VENV_PYTHON.exists() and sys.executable != str(VENV_PYTHON):
+    os.execv(str(VENV_PYTHON), [str(VENV_PYTHON), __file__] + sys.argv[1:])
+
+import time
+import subprocess
+import signal
 
 def main():
     print("==================================================================")
     print("🚢 LogisticsUpdate AI – Starting Unified Application Platform")
     print("==================================================================")
+
+    python_exe = str(VENV_PYTHON) if VENV_PYTHON.exists() else sys.executable
 
     # 1. Initialize SQLite Database
     print("\n📦 [1/3] Checking & initializing database...")
@@ -24,9 +33,6 @@ def main():
         print("    ✓ Database tables initialized.")
     except Exception as e:
         print(f"    ⚠️ Warning during DB init: {e}")
-
-    # Python executable to use
-    python_exe = sys.executable
 
     # 2. Start FastAPI Backend in background
     print("\n⚡ [2/3] Starting FastAPI Backend on http://127.0.0.1:8000...")
