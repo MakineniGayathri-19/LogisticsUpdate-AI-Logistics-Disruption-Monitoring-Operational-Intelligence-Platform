@@ -7,12 +7,18 @@ Validates:
 - Rule-based severity assignment (no hallucinations)
 """
 import pytest
+from backend.services import data_processing
 from backend.services.data_processing import (
     process_raw_records,
     assign_rule_based_severity,
     extract_location,
     clean_and_normalize_date
 )
+
+@pytest.fixture(autouse=True)
+def isolate_processed_snapshots(monkeypatch, tmp_path):
+    monkeypatch.setattr(data_processing, "PROCESSED_DATA_DIR", tmp_path)
+
 
 def test_missing_and_empty_records_dropped():
     """Verify records with empty or corrupt titles/content are dropped."""
@@ -34,8 +40,8 @@ def test_duplicate_record_removal():
     cleaned = process_raw_records(raw)
     assert len(cleaned) == 1
 
-def test_demo_provenance_is_preserved():
-    """Keep the demo marker when raw records are cleaned and normalized."""
+def test_demo_records_are_excluded_from_real_outputs():
+    """Do not mix explicitly simulated records into public-data datasets."""
     raw = [{
         "title": "Simulated Port Closure",
         "content": "Example content describing an operational port closure.",
@@ -43,8 +49,7 @@ def test_demo_provenance_is_preserved():
         "is_demo": True
     }]
     cleaned = process_raw_records(raw)
-    assert len(cleaned) == 1
-    assert cleaned[0]["is_demo"] is True
+    assert cleaned == []
 
 def test_rule_based_severity_assignment():
     """Verify evidence-based severity keywords."""
@@ -68,4 +73,4 @@ def test_date_normalization():
     res1 = clean_and_normalize_date("2024-05-12T10:00:00Z")
     assert "2024-05-12" in res1
     res2 = clean_and_normalize_date(None)
-    assert isinstance(res2, str)
+    assert res2 is None

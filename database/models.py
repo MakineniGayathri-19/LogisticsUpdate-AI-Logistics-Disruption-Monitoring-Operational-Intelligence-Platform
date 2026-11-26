@@ -51,7 +51,7 @@ class HistoricalEvent(Base):
     source_url = Column(String(500), nullable=True)
     published_date = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=utcnow)
-    is_demo = Column(Boolean, default=True)
+    is_demo = Column(Boolean, default=False)
 
     responses = relationship("OperationalResponse", back_populates="historical_event", cascade="all, delete-orphan")
 

@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101a2d">
+  <meta name="description" content="LogisticsUpdate AI operations intelligence command center">
+  <title>LogisticsUpdate AI | Operations Center</title>
+  <link rel="stylesheet" href="/static/styles.css">
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <a class="brand" href="#/overview" aria-label="LogisticsUpdate AI home">
+        <span class="brand-mark">L<span>+</span></span>
+        <span class="brand-copy"><strong>LOGISTICS<span>UPDATE</span></strong><small>INTELLIGENCE PLATFORM</small></span>
+      </a>
+      <div class="workspace-label">WORKSPACE</div>
+      <nav class="navigation" aria-label="Main navigation">
+        <a href="#/overview" data-page="overview"><span class="nav-icon">◫</span>Command center</a>
+        <a href="#/forecast" data-page="forecast"><span class="nav-icon">⌁</span>24h risk forecast</a>
+        <a href="#/disruptions" data-page="disruptions"><span class="nav-icon">⌁</span>Live disruptions<span class="nav-count" id="nav-disruption-count">—</span></a>
+        <a href="#/collection" data-page="collection"><span class="nav-icon">⌘</span>Data collection</a>
+        <a href="#/history" data-page="history"><span class="nav-icon">◷</span>Historical memory</a>
+        <a href="#/comparison" data-page="comparison"><span class="nav-icon">⟷</span>Event comparison</a>
+        <a href="#/reports" data-page="reports"><span class="nav-icon">▤</span>Operational reports</a>
+      </nav>
+      <div class="sidebar-bottom">
+        <a class="settings-link" href="#/settings" data-page="settings"><span class="nav-icon">⚙</span>System status</a>
+        <div class="sidebar-foot">
+          <div class="avatar">LU</div>
+          <div><strong>Operations desk</strong><small>LogisticsUpdate AI · v1.0</small></div>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main-area">
+      <header class="topbar">
+        <button class="mobile-menu" id="mobile-menu" aria-label="Toggle navigation">☰</button>
+        <div class="breadcrumb"><span>Operations</span><b>/</b><strong id="breadcrumb-current">Command center</strong></div>
+        <div class="topbar-actions">
+          <span class="live-indicator"><i id="health-dot"></i><span id="health-label">Connecting to API</span></span>
+          <a class="icon-button" href="/docs" target="_blank" rel="noreferrer" aria-label="Open API documentation" title="API documentation">↗</a>
+        </div>
+      </header>
+      <div class="page-wrap">
+        <div id="toast-region" aria-live="polite"></div>
+        <div id="page-content"><div class="loading-state"><span class="spinner"></span>Loading operations workspace…</div></div>
+        <footer class="page-footer"><span>LOGISTICSUPDATE AI</span><span>Operational intelligence · Evidence-led decisions</span></footer>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

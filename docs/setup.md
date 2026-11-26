@@ -40,21 +40,11 @@ Copy the template `.env.example` to create your active `.env` file:
 cp .env.example .env
 ```
 
-Open `.env` and configure your API keys as desired:
+Open `.env` only if you want to configure optional integrations:
 
 ```ini
-# Runtime Mode: 'demo' or 'live'
-APP_MODE=demo
-
 # Web Scraping Service: Firecrawl API Key (https://www.firecrawl.dev)
 FIRECRAWL_API_KEY=
-
-# Generative AI Provider Selection: 'openai' or 'gemini'
-LLM_PROVIDER=openai
-
-# LLM Provider Keys
-OPENAI_API_KEY=
-GEMINI_API_KEY=
 
 # Memento Historical Memory Provider
 MEMENTO_API_KEY=
@@ -62,22 +52,17 @@ MEMENTO_API_URL=https://api.memento.ai/v1
 
 # Database URL (SQLite)
 DATABASE_URL=sqlite:///./database/app.db
-
-# Backend API Endpoint
-API_BASE_URL=http://127.0.0.1:8000/api
 ```
 
-> **Note on Zero-Configuration Demo Mode**:
-> If you do not have external API keys yet, you can leave the keys blank. The system runs in fully functional **Demonstration Mode** using:
-> - Realistic simulated web scraping of maritime and supply chain feeds
-> - The Local Memento Development Adapter (`data/sample/memento_fallback.json`)
-> - The deterministic 13-section Operational Brief synthesis engine
+The 24-hour weather forecast uses live Open-Meteo public data and needs no API key. NOAA severe weather alerts are also collected from its public API. Add a Firecrawl key only if you want to scrape the other configured websites. Operational reports are generated locally from recorded data and do not require an AI provider or API key; they are template-based, not generative AI.
+
+The historical-event database starts empty and there is no bundled labeled training dataset. Add only source-backed precedents with their actual operational response and observed outcome. The 24-hour weather index is rule-based and is not a trained prediction model.
 
 ---
 
 ## 4. Database Initialization
 
-Initialize the SQLite database schema and seed starter sources and incidents:
+Initialize the SQLite schema and register the default public monitoring sources:
 ```bash
 python -c "from database.db import init_db; init_db()"
 ```
@@ -88,28 +73,20 @@ This creates:
 
 ## 5. Running the Application
 
-### 5.1 Start the FastAPI Backend Server
-In your first terminal window:
+### 5.1 Start the FastAPI application
 ```bash
-source .venv/bin/activate
-uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+./run.sh
 ```
-Verify the backend is live:
+The script opens the operations dashboard in your browser. The dashboard and REST API are served by the same process:
+- Dashboard: `http://127.0.0.1:8000/`
+- Interactive API documentation: `http://127.0.0.1:8000/docs`
+- Health check: `http://127.0.0.1:8000/api/health`
+
+Verify the API is live:
 ```bash
 curl http://127.0.0.1:8000/api/health
 # Output: {"status":"ok","service":"LogisticsUpdate AI Backend","version":"1.0.0"}
 ```
-Interactive OpenAPI documentation will be accessible at:
-- `http://127.0.0.1:8000/docs`
-
-### 5.2 Start the Streamlit Operations Command Center
-In a second terminal window:
-```bash
-source .venv/bin/activate
-streamlit run app/frontend.py
-```
-Open your browser to:
-- `http://localhost:8501`
 
 ---
 
@@ -120,19 +97,13 @@ Run all automated unit and integration tests:
 source .venv/bin/activate
 PYTHONPATH=. pytest tests/ -v
 ```
-All 21 test cases across the 6 test modules should pass:
-- `tests/test_scraper.py`: Firecrawl collection & URL handling
-- `tests/test_processing.py`: Pandas cleaning, deduplication, & severity logic
-- `tests/test_history.py`: Memento storage, retrieval, & adapter status
-- `tests/test_comparison.py`: TF-IDF cosine similarity & observation extraction
-- `tests/test_llm.py`: 13-section brief synthesis & provenance guardrails
-- `tests/test_pipeline.py`: Full end-to-end integration flow & PDF generation
+The tests mock public providers and write generated snapshots to temporary test directories.
 
 ---
 
 ## 7. Troubleshooting & FAQs
 
 - **Port 8000 already in use?**
-  Start FastAPI on another port: `uvicorn app.main:app --port 8080 --reload` and update `API_BASE_URL=http://127.0.0.1:8080/api` in your `.env`.
+  Start FastAPI on another port: `uvicorn app.main:app --port 8080 --reload`, then open `http://127.0.0.1:8080/`.
 - **Database schema changes?**
   Delete `database/app.db` and re-run `python -c "from database.db import init_db; init_db()"`.

@@ -1,0 +1,128 @@
+{
+  "forecast_window_hours": 24,
+  "retrieved_at": "2026-11-26T09:40:22.037764+00:00",
+  "data_source": "Open-Meteo Forecast API",
+  "source_url": "https://api.open-meteo.com/v1/forecast?latitude=51.9244%2C1.3521%2C33.7405%2C31.2304%2C9.08%2C41.8781&longitude=4.4777%2C103.8198%2C-118.272%2C121.4737%2C-79.68%2C-87.6298&hourly=weather_code%2Cwind_speed_10m%2Cwind_gusts_10m%2Cprecipitation%2Csnowfall&forecast_hours=24&timezone=UTC",
+  "attribution_url": "https://open-meteo.com/en/docs",
+  "risk_method": "Additive 0-100 index: weather code indicators add 12/25/35 points; maximum gust thresholds add 10/20/30; precipitation adds 8/15/25; snowfall adds 10/20. Scores are capped at 100; levels are Low (<20), Moderate (20-44), High (45-69), and Critical (70+). Not a trained or calibrated probability model.",
+  "locations": [
+    {
+      "name": "Rotterdam",
+      "latitude": 51.9244,
+      "longitude": 4.4777,
+      "risk_score": 0,
+      "risk_level": "Low",
+      "reasons": [
+        "No elevated weather indicators in the forecast"
+      ],
+      "metrics": {
+        "wind_speed_max_kmh": 18.4,
+        "wind_gust_max_kmh": 36.0,
+        "precipitation_max_mm": 0.0,
+        "snowfall_max_cm": 0.0
+      },
+      "forecast_hours": 24,
+      "forecast_start": "2026-11-26T09:00",
+      "forecast_end": "2026-11-27T08:00"
+    },
+    {
+      "name": "Singapore",
+      "latitude": 1.3521,
+      "longitude": 103.8198,
+      "risk_score": 43,
+      "risk_level": "Moderate",
+      "reasons": [
+        "Thunderstorm or hail indicated in the hourly forecast",
+        "Hourly precipitation reaches 5.0 mm"
+      ],
+      "metrics": {
+        "wind_speed_max_kmh": 8.6,
+        "wind_gust_max_kmh": 24.1,
+        "precipitation_max_mm": 5.0,
+        "snowfall_max_cm": 0.0
+      },
+      "forecast_hours": 24,
+      "forecast_start": "2026-11-26T09:00",
+      "forecast_end": "2026-11-27T08:00"
+    },
+    {
+      "name": "Los Angeles",
+      "latitude": 33.7405,
+      "longitude": -118.272,
+      "risk_score": 0,
+      "risk_level": "Low",
+      "reasons": [
+        "No elevated weather indicators in the forecast"
+      ],
+      "metrics": {
+        "wind_speed_max_kmh": 11.9,
+        "wind_gust_max_kmh": 14.0,
+        "precipitation_max_mm": 0.0,
+        "snowfall_max_cm": 0.0
+      },
+      "forecast_hours": 24,
+      "forecast_start": "2026-11-26T09:00",
+      "forecast_end": "2026-11-27T08:00"
+    },
+    {
+      "name": "Shanghai",
+      "latitude": 31.2304,
+      "longitude": 121.4737,
+      "risk_score": 0,
+      "risk_level": "Low",
+      "reasons": [
+        "No elevated weather indicators in the forecast"
+      ],
+      "metrics": {
+        "wind_speed_max_kmh": 13.0,
+        "wind_gust_max_kmh": 32.4,
+        "precipitation_max_mm": 0.0,
+        "snowfall_max_cm": 0.0
+      },
+      "forecast_hours": 24,
+      "forecast_start": "2026-11-26T09:00",
+      "forecast_end": "2026-11-27T08:00"
+    },
+    {
+      "name": "Panama Canal",
+      "latitude": 9.08,
+      "longitude": -79.68,
+      "risk_score": 12,
+      "risk_level": "Low",
+      "reasons": [
+        "Rain or snow indicated in the hourly forecast"
+      ],
+      "metrics": {
+        "wind_speed_max_kmh": 20.1,
+        "wind_gust_max_kmh": 44.3,
+        "precipitation_max_mm": 1.5,
+        "snowfall_max_cm": 0.0
+      },
+      "forecast_hours": 24,
+      "forecast_start": "2026-11-26T09:00",
+      "forecast_end": "2026-11-27T08:00"
+    },
+    {
+      "name": "Chicago",
+      "latitude": 41.8781,
+      "longitude": -87.6298,
+      "risk_score": 32,
+      "risk_level": "Moderate",
+      "reasons": [
+        "Rain or snow indicated in the hourly forecast",
+        "Forecast wind gusts reach 68 km/h"
+      ],
+      "metrics": {
+        "wind_speed_max_kmh": 38.5,
+        "wind_gust_max_kmh": 68.4,
+        "precipitation_max_mm": 2.5,
+        "snowfall_max_cm": 0.0
+      },
+      "forecast_hours": 24,
+      "forecast_start": "2026-11-26T09:00",
+      "forecast_end": "2026-11-27T08:00"
+    }
+  ],
+  "raw_snapshot": "data/raw/open_meteo_forecast_20261126_094022.json",
+  "processed_snapshot": "data/processed/24h_weather_risk_20261126_094022.json"
+}

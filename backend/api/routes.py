@@ -1,6 +1,6 @@
 """FastAPI API routes for LogisticsUpdate AI.
 Exposes endpoints for collection, disruptions, historical context, comparison,
-LLM operational briefs, and system health.
+local operational reports, and system health.
 """
 from fastapi import APIRouter, HTTPException, Response
 from pydantic import BaseModel, Field
@@ -12,7 +12,10 @@ from backend.services.report_service import generate_report_for_event, generate_
 from backend.services.event_comparison import compare_disruption_with_history
 from backend.services.memento_manager import get_memento_status, store_operational_response
 from backend.services.memento_manager import get_all_stored_events
+from backend.services.forecast_service import get_24_hour_forecast
+from utils.config import settings
 from utils.validators import is_valid_url
+import requests
 
 router = APIRouter()
 
@@ -37,10 +40,11 @@ class HistoricalEventCreate(BaseModel):
     category: str = Field(default="Other")
     location: Optional[str] = "Unspecified Location"
     severity: str = Field(default="High")
-    response: Optional[str] = None
-    outcome: Optional[str] = None
-    source_name: Optional[str] = "Manual Entry"
-    source_url: Optional[str] = ""
+    response: str = Field(..., min_length=5)
+    outcome: str = Field(..., min_length=5)
+    source_name: str = Field(..., min_length=2)
+    source_url: str = Field(..., min_length=8)
+    published_date: Optional[str] = None
 
 class SourceCreate(BaseModel):
     name: str = Field(..., min_length=2)
@@ -73,6 +77,27 @@ async def get_stats():
 async def memento_status():
     """Returns Memento adapter connection status."""
     return get_memento_status()
+
+@router.get("/integrations")
+async def integration_status():
+    """Expose configuration state without returning secret values."""
+    return {
+        "firecrawl_configured": settings.is_firecrawl_active,
+        "report_generator": "Local evidence-based template",
+        "report_requires_api_key": False,
+        "forecast_source": "Open-Meteo Forecast API",
+    }
+
+@router.get("/forecast")
+def forecast_weather_risk():
+    """Return a live, rule-based 24-hour weather exposure forecast."""
+    try:
+        return get_24_hour_forecast()
+    except (ValueError, requests.RequestException) as exc:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Live 24-hour forecast is unavailable: {exc}",
+        ) from exc
 
 # ---------------------------------------------------------------------------
 # Data Collection
@@ -146,6 +171,8 @@ async def list_historical():
 @router.post("/historical-events")
 async def add_historical(payload: HistoricalEventCreate):
     """Add a historical incident record to memory store."""
+    if not is_valid_url(payload.source_url):
+        raise HTTPException(status_code=422, detail="A valid source URL is required for historical records.")
     return repositories.add_historical_event(payload.model_dump())
 
 @router.post("/historical-events/response")
@@ -170,15 +197,15 @@ async def compare(event_id: str):
     return comparison
 
 # ---------------------------------------------------------------------------
-# AI Reports
+# Operational Reports
 # ---------------------------------------------------------------------------
 
 @router.post("/reports/generate")
 async def generate_report(request: ReportGenerateRequest):
-    """Synthesizes a 13-section Operational Intelligence Brief using GenAI/LLM."""
+    """Generate a 13-section local operational report."""
     report = generate_report_for_event(request.event_id)
     if not report:
-        raise HTTPException(status_code=404, detail=f"Failed to generate brief for event '{request.event_id}'")
+        raise HTTPException(status_code=404, detail=f"Disruption '{request.event_id}' not found")
     return report
 
 @router.get("/reports", response_model=List[Dict[str, Any]])

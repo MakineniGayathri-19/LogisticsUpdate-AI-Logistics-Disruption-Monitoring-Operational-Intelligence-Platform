@@ -32,31 +32,38 @@ Returns aggregated KPI counts for the dashboard overview.
 ```
 
 ### `GET /api/memento/status`
-Returns connection status and adapter type for Memento memory.
+Returns the historical event storage status. SQLite is the local authoritative store; optional cloud synchronization is not assumed to be live.
 ```json
 {
-  "status": "local_fallback",
-  "adapter": "Local Memento Adapter [Demo/Dev Mode]",
-  "endpoint": ".../data/sample/memento_fallback.json",
+  "status": "local_database",
+  "adapter": "SQLite Historical Event Store",
+  "endpoint": "database/app.db",
   "is_live": false
 }
 ```
+
+### `GET /api/integrations`
+Returns configured integration names and readiness without exposing keys.
+The response reports `"report_generator": "Local evidence-based template"` and `"report_requires_api_key": false`.
+
+### `GET /api/forecast`
+Fetches current hourly Open-Meteo data for six hubs, returns a rule-based 24-hour weather exposure index, and saves raw JSON plus processed JSON/CSV snapshots under `data/raw/` and `data/processed/`. The response's `risk_method` field lists the scoring weights and levels. The index is not a trained probability model. Returns `503` if the public forecast cannot be fetched or parsed.
 
 ---
 
 ## 2. Ingestion & Collection
 
 ### `POST /api/collect`
-Triggers the full Firecrawl scraping, Pandas cleaning, categorization, and Memento storage pipeline.
+Triggers NOAA alert collection and optional Firecrawl website scraping, followed by Pandas cleaning and SQLite persistence. NOAA data is available without a key; other website feeds require Firecrawl configuration.
 - **Response `200 OK`**:
 ```json
 {
   "status": "success",
   "sources_scraped": 5,
-  "fetched": 5,
-  "processed": 5,
-  "stored": 4,
-  "errors_count": 0
+  "fetched": 2,
+  "processed": 2,
+  "stored": 2,
+  "errors_count": 3
 }
 ```
 
@@ -118,7 +125,7 @@ Remove a monitoring source by ID.
 List all stored historical precedents with documented responses and outcomes.
 
 ### `POST /api/historical-events`
-Commit a historical event into the Memento memory repository.
+Commit a source-backed historical event with its documented response and observed outcome to SQLite. `title`, `description`, `source_name`, `source_url`, `response`, and `outcome` are required; the source URL must be a valid HTTP(S) URL.
 
 ### `POST /api/compare/{event_id}`
 Computes TF-IDF vector cosine similarity between the selected disruption and all historical precedents.
@@ -143,21 +150,22 @@ Computes TF-IDF vector cosine similarity between the selected disruption and all
 
 ---
 
-## 6. AI Operational Reports
+## 6. Operational Reports
 
 ### `POST /api/reports/generate`
-Synthesizes a 13-section Operational Intelligence Brief.
+Generates a 13-section report locally from the disruption record and stored historical comparisons. This template-based output is not generative AI and does not require an API key.
 - **Payload**: `{"event_id": "<disruption_id>"}`
 - **Response `200 OK`**:
 ```json
 {
   "id": "a4b8e2d93e11",
-  "disruption_id": "demo-dis-001",
-  "content": "================================================================================\nLOGISTICSUPDATE AI – OPERATIONAL INTELLIGENCE BRIEF\n...",
-  "llm_provider": "Deterministic Fallback [Demo Mode]",
+  "disruption_id": "stored-disruption-id",
+  "content": "LOGISTICSUPDATE — OPERATIONAL REPORT\nGenerated locally from stored application data. This is not an AI-generated report.\n...",
+  "llm_provider": "Local evidence-based template (not AI)",
   "generated_at": "2026-11-22T22:50:33+00:00"
 }
 ```
+The legacy `llm_provider` response field contains the report-generator label for compatibility. A missing event returns `404`; report generation is local.
 
 ### `GET /api/reports`
 List all generated intelligence reports.

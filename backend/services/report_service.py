@@ -1,10 +1,11 @@
-"""Report Service for LogisticsUpdate AI.
-Orchestrates event fetching, historical comparison retrieval, LLM brief synthesis,
+"""Report service for local evidence-based operational summaries.
+Orchestrates event fetching, historical comparison retrieval, local brief generation,
 database persistence, and professional PDF brief generation via ReportLab.
 """
 import io
 from typing import Dict, Any, Optional
 from datetime import datetime, timezone
+from xml.sax.saxutils import escape
 
 from backend.services.llm_service import generate_brief
 from backend.services.event_comparison import compare_disruption_with_history
@@ -12,7 +13,7 @@ from database import repositories
 from utils.logger import logger
 
 def generate_report_for_event(event_id: str) -> Optional[Dict[str, Any]]:
-    """Generate and store an operational intelligence brief for a disruption event."""
+    """Generate and store a local operational report for a disruption event."""
     event = repositories.get_disruption_by_id(event_id)
     if not event:
         logger.error(f"Cannot generate report: event '{event_id}' not found.")
@@ -21,7 +22,7 @@ def generate_report_for_event(event_id: str) -> Optional[Dict[str, Any]]:
     # 1. Retrieve similar historical events and comparison analysis
     comparison_data = compare_disruption_with_history(event, top_n=3)
 
-    # 2. Generate brief using configured LLM or deterministic fallback
+    # 2. Generate a local report from recorded event data and comparisons.
     brief_content, provider_name = generate_brief(event, comparison_data)
 
     # 3. Persist the report into SQLite database
@@ -102,7 +103,7 @@ def generate_pdf_report(report_data: Dict[str, Any], event_data: Optional[Dict[s
 
     # Title Banner
     story.append(Paragraph("LogisticsUpdate AI", title_style))
-    story.append(Paragraph("AI-Powered Logistics Disruption Monitoring & Operational Intelligence Platform", subtitle_style))
+    story.append(Paragraph("Source-grounded local reports · no generative AI", subtitle_style))
     story.append(HRFlowable(width="100%", thickness=1.5, color=colors.HexColor('#1E3E62'), spaceAfter=10))
 
     # Metadata Block
@@ -112,7 +113,7 @@ def generate_pdf_report(report_data: Dict[str, Any], event_data: Optional[Dict[s
             Paragraph(f"<b>Disruption Ref:</b> {report_data.get('disruption_id', 'N/A')}", body_style)
         ],
         [
-            Paragraph(f"<b>Provider:</b> {report_data.get('llm_provider', 'LogisticsUpdate Engine')}", body_style),
+            Paragraph(f"<b>Generator:</b> {report_data.get('llm_provider', 'Local evidence-based template (not AI)')}", body_style),
             Paragraph(f"<b>Generated At:</b> {report_data.get('generated_at', datetime.now(timezone.utc).isoformat())}", body_style)
         ]
     ]
@@ -139,12 +140,12 @@ def generate_pdf_report(report_data: Dict[str, Any], event_data: Optional[Dict[s
         # Check if line looks like a numbered section header: e.g. "1. EXECUTIVE SUMMARY"
         if stripped[0].isdigit() and ("." in stripped[:3] or ")" in stripped[:3]):
             story.append(Spacer(1, 6))
-            story.append(Paragraph(stripped, header_style))
+            story.append(Paragraph(escape(stripped), header_style))
         elif stripped.startswith("•") or stripped.startswith("-"):
             bullet_text = stripped.lstrip("•- ")
-            story.append(Paragraph(f"&bull; {bullet_text}", body_style))
+            story.append(Paragraph(f"&bull; {escape(bullet_text)}", body_style))
         else:
-            story.append(Paragraph(stripped, body_style))
+            story.append(Paragraph(escape(stripped), body_style))
 
     doc.build(story)
     buffer.seek(0)

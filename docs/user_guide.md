@@ -6,45 +6,38 @@
 - macOS / Linux with Python 3.10+ (Python 3.13 supported)
 - Virtual environment with dependencies installed
 
-### Launching the Backend API
-In your terminal, activate the virtual environment and start Uvicorn:
+### Launching the Operations Center
+From the project folder, run:
 ```bash
-source .venv/bin/activate
-uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+./run.sh
 ```
-The FastAPI backend will run on `http://127.0.0.1:8000`. You can test it in another tab:
+This starts the server and opens the dashboard in your browser. If it does not open automatically, visit `http://127.0.0.1:8000/`. The API health check is available at:
 ```bash
 curl http://127.0.0.1:8000/api/health
 # Returns: {"status": "ok"}
 ```
 
-### Launching the Streamlit Operations Dashboard
-In a second terminal, activate the environment and launch Streamlit:
-```bash
-source .venv/bin/activate
-streamlit run app/frontend.py
-```
-Open your browser to `http://localhost:8501`.
+Open the dashboard at `http://127.0.0.1:8000/` and interactive API docs at `http://127.0.0.1:8000/docs`.
 
 ---
 
-## 2. Navigating the 7 Dashboard Modules
+## 2. Navigating the Operations Dashboard
 
 1. **📊 Overview**: View total disruptions, critical alerts, monitored feeds, and severity distribution charts.
-2. **⚡ Live Disruptions**: Filter active alerts by severity, category, or search keywords. Click **Generate AI Operational Brief** on any event to synthesize insights immediately.
-3. **📡 Data Collection**: Click **Run Live Scraping & Processing** to ingest live feeds. Add or delete monitored feed URLs on demand.
-4. **📜 Historical Events**: Browse Memento historical precedents with recorded operational responses and mitigation outcomes.
-5. **🔍 Similarity & Comparison**: Choose any active disruption to run TF-IDF cosine similarity calculations against past precedents.
-6. **🤖 AI Operational Reports**: Read formatted, strict no-hallucination operational briefs. Click **Download Brief (.txt)** to export for stakeholders.
-7. **⚙️ Settings & Health**: Check API key configurations (OpenAI, Firecrawl) and re-initialize database tables if needed.
+2. **24h Risk Forecast**: Review live weather exposure data for major logistics hubs. The page displays the additive scoring weights and risk bands; this is a rule-based index, not a trained probability model.
+3. **⚡ Live Disruptions**: Filter actual alerts by severity, category, or search keywords. Generate a local evidence-based operational report for an event.
+4. **📡 Data Collection**: Collect NOAA severe alerts and, when configured, scrape live public feeds with Firecrawl. Add or delete monitored feed URLs.
+5. **📜 Historical Events**: Browse only stored events with source references and recorded outcomes. The store starts empty; add verified precedents to enable comparisons.
+6. **🔍 Similarity & Comparison**: Compare an active disruption against stored real historical records.
+7. **📋 Operational Reports**: Generate and read 13-section reports based on stored event facts and precedents. These reports use a local template, are not generative AI, and can be exported as PDF or text without an API key.
+8. **⚙️ System Status**: Check integration configuration and open interactive API documentation.
 
 ---
 
 ## 3. Environment Variables (`.env`)
 Create a `.env` file from `.env.example`:
 ```env
-FIRECRAWL_API_KEY="your-firecrawl-key"  # Optional: Runs demo scraper if blank
-OPENAI_API_KEY="your-openai-key"        # Optional: Runs high-fidelity fallback if blank
+FIRECRAWL_API_KEY="your-firecrawl-key"  # Optional; NOAA alerts work without it
 DATABASE_URL="sqlite:///database/app.db"
-APP_MODE="demo"
 ```
+Operational reports do not use or require external AI credentials.

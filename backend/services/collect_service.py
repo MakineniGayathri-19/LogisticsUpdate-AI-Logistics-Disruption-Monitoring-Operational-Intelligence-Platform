@@ -1,9 +1,9 @@
 """Collection Pipeline Orchestration Service.
 Coordinates:
-1. Querying active source targets from SQLite.
-2. Web scraping via Firecrawl service (with rate-limit handling & raw logging).
+1. Querying active public source targets from SQLite.
+2. Fetching NOAA alerts and scraping configured websites via Firecrawl.
 3. Pandas-based text cleaning, deduplication, categorization, and rule-based severity.
-4. Database persistence and Memento historical memory synchronization.
+4. Persisting source-backed disruption records in SQLite.
 5. Audit logging in CollectionLog table.
 """
 from typing import Dict, Any, List
@@ -11,7 +11,6 @@ from datetime import datetime, timezone
 
 from backend.services.firecrawl_service import collect_updates
 from backend.services.data_processing import process_raw_records
-from backend.services.memento_manager import store_event
 from database import repositories
 from utils.logger import logger
 
@@ -35,7 +34,7 @@ def run_collection() -> Dict[str, Any]:
             "stored": 0
         }
 
-    # 2. Scrape raw data via Firecrawl service
+    # 2. Fetch public alert feeds and scrape configured websites.
     raw_records, errors = collect_updates(sources)
 
     # Log errors per source if any
@@ -52,11 +51,11 @@ def run_collection() -> Dict[str, Any]:
             source_url="BATCH_CYCLE",
             status="failed",
             records_count=0,
-            error_message="Firecrawl collection returned 0 raw records."
+            error_message="No records were returned from public feeds."
         )
         return {
             "status": "no_data",
-            "message": "Firecrawl collection returned no records. Check feed URLs or API credentials.",
+            "message": "No records were returned. Check configured feed URLs and API credentials.",
             "errors": errors,
             "fetched": 0,
             "processed": 0,
@@ -66,13 +65,11 @@ def run_collection() -> Dict[str, Any]:
     # 3. Clean and categorize using Pandas data processing engine
     cleaned_records = process_raw_records(raw_records)
 
-    # 4. Store cleaned disruptions and sync to Memento
+    # 4. Store source-backed disruptions in SQLite.
     stored_count = 0
     for rec in cleaned_records:
         try:
-            persisted = repositories.create_disruption(rec)
-            # Push to Memento memory
-            store_event(persisted)
+            repositories.create_disruption(rec)
             stored_count += 1
         except Exception as e:
             logger.error(f"Error persisting disruption '{rec.get('title')}': {e}")

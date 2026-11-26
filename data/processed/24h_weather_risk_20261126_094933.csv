@@ -1,0 +1,7 @@
+name,latitude,longitude,risk_score,risk_level,wind_speed_max_kmh,wind_gust_max_kmh,precipitation_max_mm,snowfall_max_cm,forecast_start,forecast_end
+Rotterdam,51.9244,4.4777,0,Low,17.6,34.6,0.0,0.0,2026-11-26T09:00,2026-11-27T08:00
+Singapore,1.3521,103.8198,43,Moderate,8.6,24.1,5.0,0.0,2026-11-26T09:00,2026-11-27T08:00
+Los Angeles,33.7405,-118.272,0,Low,11.9,14.0,0.0,0.0,2026-11-26T09:00,2026-11-27T08:00
+Shanghai,31.2304,121.4737,0,Low,13.0,32.4,0.0,0.0,2026-11-26T09:00,2026-11-27T08:00
+Panama Canal,9.08,-79.68,12,Low,20.1,44.3,1.5,0.0,2026-11-26T09:00,2026-11-27T08:00
+Chicago,41.8781,-87.6298,32,Moderate,38.5,68.4,2.5,0.0,2026-11-26T09:00,2026-11-27T08:00

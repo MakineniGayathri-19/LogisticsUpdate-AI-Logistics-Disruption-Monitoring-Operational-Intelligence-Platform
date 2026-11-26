@@ -64,8 +64,8 @@ def compare_disruption_with_history(current_event: Dict[str, Any], top_n: int = 
     """Compare a current disruption against all stored historical events.
     Uses TF-IDF feature matrix and cosine similarity scoring.
     """
-    from backend.services.memento_manager import _load_fallback_store
-    past_events = _load_fallback_store()
+    from database import repositories
+    past_events = repositories.get_all_historical_events()
 
     if not past_events:
         return {
@@ -133,8 +133,8 @@ def compare_disruption_with_history(current_event: Dict[str, Any], top_n: int = 
                 "title": pe.get("title"),
                 "category": pe.get("category"),
                 "location": pe.get("location"),
-                "previous_response": pe.get("response", "Standard modal rerouting protocol."),
-                "historical_outcome": pe.get("outcome", "Dwell time normalized within 72 hours."),
+                "previous_response": pe.get("response", ""),
+                "historical_outcome": pe.get("outcome", ""),
                 "common_factors": diff_analysis["common_factors"],
                 "key_differences": diff_analysis["key_differences"],
                 "operational_observations": diff_analysis["operational_observations"]

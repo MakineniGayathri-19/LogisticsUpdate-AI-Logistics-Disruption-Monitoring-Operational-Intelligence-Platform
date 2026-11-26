@@ -1,7 +1,7 @@
 # LogisticsUpdate AI 🚢⚡
-### AI-Powered Logistics Disruption Monitoring & Operational Intelligence Platform
+### Logistics Disruption Monitoring & Operational Intelligence Platform
 
-LogisticsUpdate AI is an end-to-end operational intelligence platform designed for logistics and supply chain command centers. The application monitors global public logistics sources, performs evidence-based data cleaning and severity scoring, retrieves historical precedents via Memento, benchmarks incidents with TF-IDF semantic comparison, and uses Generative AI to generate structured 13-section operational briefs with PDF export.
+LogisticsUpdate AI is an end-to-end operational intelligence platform designed for logistics and supply chain command centers. It ingests source-backed public alerts, calculates a transparent 24-hour weather exposure index from live forecasts, compares incidents only against recorded historical events, and generates local 13-section operational reports from stored evidence. Reports require no external credentials and are not generative-AI output.
 
 ---
 
@@ -11,10 +11,10 @@ This project is built collaboratively by a team of four members:
 
 | Team Member | Module & Responsibility | Technologies | Key Deliverables |
 | :--- | :--- | :--- | :--- |
-| **Member 1** | **Data Collection (Firecrawl)** | Python, Firecrawl SDK, Requests | Public web scraping, source feed management, raw payload storage (`data/raw/`), collection error handling, rate-limit resilience. |
+| **Member 1** | **Public Data Collection** | Python, Firecrawl SDK, Requests | NOAA alert collection, optional web scraping, raw payload storage (`data/raw/`), source feed management, and collection error handling. |
 | **Member 2** | **Data Processing & Cleaning** | Python, Pandas, Regex | Empty record pruning, duplicate elimination, category classification (8 classes), evidence-based severity rules, location extraction, processed datasets (`data/processed/`). |
-| **Member 3** | **Historical Context & Comparison** | Memento API, Scikit-learn, TF-IDF | Dedicated Memento service adapter, historical precedent repository, operational response tracking, TF-IDF cosine similarity scoring. |
-| **Member 4** | **Generative AI & Frontend Command Center** | OpenAI / Gemini, Streamlit, ReportLab | Prompt engineering, strict 13-section no-hallucination operational briefs, 7-page Streamlit dashboard, PDF export engine. |
+| **Member 3** | **Historical Context & Comparison** | SQLite, Scikit-learn, TF-IDF | Source-backed historical precedent repository, operational response tracking, TF-IDF cosine similarity scoring. |
+| **Member 4** | **Operational Reports & Frontend Command Center** | FastAPI, HTML/CSS/JavaScript, ReportLab | Local evidence-based 13-section reports, responsive web dashboard, and PDF export engine. |
 
 ---
 
@@ -23,15 +23,16 @@ This project is built collaboratively by a team of four members:
 1. **⚡ Fast REST Backend**: FastAPI modular architecture with typed Pydantic schemas, CORS support, and interactive Swagger docs (`/docs`).
 2. **🗄️ Relational Persistence**: SQLite + SQLAlchemy managing 6 distinct tables:
    - `disruptions` (live incoming alerts)
-   - `historical_events` (ground-truth precedent repository)
+   - `historical_events` (source-backed recorded precedent repository)
    - `operational_responses` (actions taken and business outcomes)
    - `sources` (registered monitoring websites)
-   - `reports` (generated AI intelligence briefs)
+   - `reports` (generated operational reports)
    - `collection_logs` (auditable scraping run logs)
 3. **🕷️ Firecrawl Scraping Engine**: Extracts titles, published dates, and markdown content from maritime, port, and rail feeds.
-4. **🏛️ Memento Historical Adapter**: Connects to Memento Cloud API or falls back gracefully to a verified Local Development Adapter with zero false claims.
-5. **🔍 TF-IDF Semantic Precedent Matching**: Calculates incident similarity percentages and extracts common factors, key differences, and operational lessons.
-6. **🤖 Strict 13-Section AI Operational Briefs**: Formatted briefs adhering to:
+4. **🌦️ Live Weather Forecast**: Retrieves the next 24 hours of Open-Meteo weather data for six logistics hubs and calculates a transparent weather-risk index. This index is not presented as a trained probability.
+5. **🏛️ Source-backed Historical Memory**: Historical comparisons use only records stored with source references and documented outcomes; the store starts empty instead of including synthetic sample precedents.
+6. **🔍 TF-IDF Semantic Precedent Matching**: Calculates incident similarity percentages and extracts common factors, key differences, and operational lessons.
+7. **📋 Strict 13-Section Operational Reports**: Generated locally from stored event facts and historical records. They are template-based, not generative AI, and clearly identify missing evidence. Each report includes:
    1. Executive Summary
    2. Current Disruption Details
    3. Disruption Category
@@ -45,8 +46,8 @@ This project is built collaboratively by a team of four members:
    11. Operational Considerations & Contingencies
    12. Source References
    13. Data Limitations and Uncertainties
-7. **📄 Official PDF Brief Export**: Integrated ReportLab export allowing instant download of operational briefs.
-8. **🖥️ Modern 7-Page Streamlit Dashboard**: Dark navy and blue theme with responsive metric cards, interactive charts, and live filters.
+8. **📄 Official PDF Brief Export**: Integrated ReportLab export allowing instant download of operational briefs.
+9. **🖥️ FastAPI Operations Dashboard**: Responsive command center served directly by FastAPI, with live analytics, operational workflows, and no separate frontend runtime.
 
 ---
 
@@ -55,25 +56,18 @@ This project is built collaboratively by a team of four members:
 ```
 LogisticsUpdate-AI/
 ├── app/
-│   ├── main.py                     # FastAPI backend application entrypoint
-│   ├── frontend.py                 # Streamlit master command center
-│   └── pages/                      # Modular dashboard pages
-│       ├── overview.py             # Page 1: High-level KPI metrics & charts
-│       ├── live_disruptions.py     # Page 2: Live disruption stream & filters
-│       ├── data_collection.py      # Page 3: Firecrawl scraping & source management
-│       ├── historical_events.py    # Page 4: Memento precedent repository
-│       ├── event_comparison.py     # Page 5: TF-IDF similarity comparison
-│       ├── ai_reports.py           # Page 6: 13-section AI briefs & PDF download
-│       └── settings.py             # Page 7: System configuration & diagnostics
+│   ├── main.py                     # FastAPI app, static dashboard, and API entrypoint
+│   └── static/                     # Responsive HTML/CSS/JavaScript operations dashboard
 ├── backend/
 │   ├── api/
 │   │   └── routes.py               # FastAPI endpoints & Pydantic schemas
 │   └── services/
 │       ├── firecrawl_service.py    # Member 1: Web scraping & raw capture
+│       ├── forecast_service.py     # Live Open-Meteo forecast and weather-risk index
 │       ├── data_processing.py      # Member 2: Pandas cleaning & severity rules
-│       ├── memento_manager.py      # Member 3: Memento adapter & response memory
+│   ├── memento_manager.py          # Member 3: SQLite historical-event access
 │       ├── event_comparison.py     # Member 3: TF-IDF & cosine comparison engine
-│       ├── llm_service.py          # Member 4: GenAI brief synthesis (OpenAI/Gemini)
+│       ├── llm_service.py          # Member 4: Local evidence-based report generation
 │       ├── report_service.py       # Member 4: Report orchestration & ReportLab PDF
 │       └── collect_service.py      # Master ingestion pipeline coordinator
 ├── database/
@@ -81,19 +75,20 @@ LogisticsUpdate-AI/
 │   ├── models.py                   # 6 Table definitions
 │   └── repositories.py             # Typed database CRUD & KPI queries
 ├── data/
-│   ├── raw/                        # Raw scraped JSON files
-│   ├── processed/                  # Cleaned CSV and JSON outputs
-│   └── sample/                     # Memento fallback precedent records
+│   ├── raw/                        # Raw public API and scraped JSON files
+│   ├── processed/                  # Cleaned data and forecast CSV/JSON outputs
 ├── utils/
 │   ├── config.py                   # Dataclass settings & masked key utilities
 │   ├── logger.py                   # Application logging
 │   └── validators.py               # URL, schema, and category validators
 ├── tests/
-│   ├── test_scraper.py             # Member 1 tests
+│   ├── test_frontend.py            # FastAPI dashboard route and static asset tests
+│   ├── test_scraper.py             # Live-source and Firecrawl behavior tests
+│   ├── test_forecast.py            # Weather risk index and snapshot tests
 │   ├── test_processing.py          # Member 2 tests
-│   ├── test_history.py             # Member 3 tests
+│   ├── test_history.py             # Source-backed historical record tests
 │   ├── test_comparison.py          # Member 3 comparison tests
-│   ├── test_llm.py                 # Member 4 GenAI tests
+│   ├── test_llm.py                 # Local operational report tests
 │   └── test_pipeline.py            # End-to-end integration tests
 ├── docs/
 │   ├── architecture.md             # System architecture & data flow diagrams
@@ -121,26 +116,18 @@ pip install -r requirements.txt
 ```bash
 cp .env.example .env
 ```
-*(Optional: Provide `FIRECRAWL_API_KEY`, `OPENAI_API_KEY`, or `GEMINI_API_KEY`. If left blank, the app functions smoothly in full Demonstration Mode).*
+Operational reports do not need an API key. Add `FIRECRAWL_API_KEY` only if you want to scrape the configured public websites; NOAA severe alerts and Open-Meteo forecasts are available from public endpoints without a key.
 
 ### 3. Initialize Database
 ```bash
 python -c "from database.db import init_db; init_db()"
 ```
 
-### 4. Launch Backend API (Terminal 1)
+### 4. Launch the FastAPI application
 ```bash
-source .venv/bin/activate
-uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+./run.sh
 ```
-API docs available at: `http://127.0.0.1:8000/docs`
-
-### 5. Launch Streamlit Operations Center (Terminal 2)
-```bash
-source .venv/bin/activate
-streamlit run app/frontend.py
-```
-Open your browser at: `http://localhost:8501`
+The script starts the server and opens the operations dashboard in your browser. API docs are available at `http://127.0.0.1:8000/docs`.
 
 ---
 
@@ -150,12 +137,13 @@ Execute the automated test suite with full verbose reporting:
 ```bash
 PYTHONPATH=. pytest tests/ -v
 ```
-All 21 test cases validate:
+The test suite validates:
 - Firecrawl scraper URL handling & batch capture
 - Pandas missing value pruning, deduplication, and severity heuristics
-- Memento precedent persistence and response queries
+- Real historical record persistence and response queries
+- Forecast score calculations and saved public-data snapshots
 - TF-IDF similarity calculation and variance extraction
-- 13-section AI operational brief compliance and PDF generation
+- 13-section local operational report generation and PDF export
 
 ---
 
@@ -165,14 +153,14 @@ For college evaluation and project demonstrations:
 
 1. **Slide 1: Title & Team**: Introduction to LogisticsUpdate AI and the 4 member roles.
 2. **Slide 2: Problem Statement**: Global supply chain volatility, maritime bottlenecks, and the need for precedent-backed operational intelligence.
-3. **Slide 3: System Architecture**: End-to-end pipeline (Firecrawl -> Pandas -> SQLite -> Memento -> TF-IDF -> GenAI -> Streamlit).
+3. **Slide 3: System Architecture**: End-to-end pipeline (Firecrawl -> Pandas -> SQLite -> Memento -> TF-IDF -> GenAI -> FastAPI dashboard).
 4. **Slide 4: Live Demonstration**:
    - Ingesting a disruption feed (Data Collection page).
    - Exploring live alerts & rule-based severity (Live Disruptions).
    - Matching against historical precedents with TF-IDF similarity (Event Comparison).
-   - Synthesizing a 13-section AI operational brief and downloading the official PDF (AI Reports).
+   - Generating a 13-section local operational report and downloading its PDF (Operational Reports).
 5. **Slide 5: Innovation & Guardrails**:
    - Evidence-based severity rules prevent speculative ratings.
-   - Grounded LLM synthesis strictly citing source URLs and Memento memory.
-   - Dual-mode architecture (Live API integration + resilient zero-credential Demo Mode).
+   - Reports are generated locally from recorded facts and explicitly identify their limitations.
+   - Public source-backed feeds and no external AI/API-key requirement for reports.
 6. **Slide 6: Conclusion & Next Steps**: Live AIS telemetry integration, multi-modal container tracking, and ERP webhooks.

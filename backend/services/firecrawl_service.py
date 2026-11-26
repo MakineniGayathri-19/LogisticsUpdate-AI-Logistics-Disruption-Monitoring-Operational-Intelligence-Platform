@@ -1,14 +1,12 @@
-"""Firecrawl Data Collection Service (Member 1).
-Integrates the official Firecrawl SDK with robust error handling, rate-limit resilience,
-and automated raw data persistence to `data/raw/`.
-Provides a high-fidelity demonstration mode when Firecrawl API keys are absent.
-"""
+"""Public-source collection using NOAA alerts and optional Firecrawl scraping."""
 import os
 import json
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple
+
+import requests
 
 from utils.config import settings
 from utils.logger import logger
@@ -18,48 +16,67 @@ BASE_DIR = Path(__file__).resolve().parents[2]
 RAW_DATA_DIR = BASE_DIR / "data" / "raw"
 RAW_DATA_DIR.mkdir(parents=True, exist_ok=True)
 
-# Pre-defined realistic live public updates used when scraping in Demo Mode
-DEMO_LIVE_SCRAPED_FEEDS = [
-    {
-        "title": "Severe Berthing Congestion at Port of Singapore Dwell Exceeds 7 Days",
-        "content": "A sudden surge in vessel reroutings around the Cape of Good Hope has created severe bottleneck conditions at PSA Singapore container terminals. Waiting times at anchorage have surged to nearly seven days with over 450,000 TEU awaiting clearance.",
-        "category": "Port Disruption",
-        "location": "Port of Singapore, Singapore",
-        "source_name": "Maritime Executive Live Wire",
-        "source_url": "https://maritime-executive.com/article/singapore-berthing-surge-2024",
-        "published_date": datetime.now(timezone.utc).isoformat()
-    },
-    {
-        "title": "Rhine River Low Water Halts Barge Freight Across Kaub Bottleneck",
-        "content": "Prolonged dry weather has reduced Rhine river water gauges at Kaub below 40 centimeters. Inland navigation barges can only load 25% of standard capacity, shifting chemical and coal supply chains onto overloaded European rail corridors.",
-        "category": "Weather Disruption",
-        "location": "Rhine River (Kaub), Germany",
-        "source_name": "FreightWaves Supply Chain Alerts",
-        "source_url": "https://www.freightwaves.com/news/rhine-river-drought-kaub-gauge",
-        "published_date": datetime.now(timezone.utc).isoformat()
-    },
-    {
-        "title": "Major Ocean Carrier Issues Surcharge Notice on Transpacific Eastbound Routes",
-        "content": "Maersk and CMA CGM have announced Peak Season Surcharges (PSS) of $1,000 per FEU starting next month due to persistent equipment repositioning shortages in Asian hub ports.",
-        "category": "Carrier Announcement",
-        "location": "Transpacific Corridor (Asia - North America)",
-        "source_name": "Journal of Commerce",
-        "source_url": "https://joc.com/article/carrier-surcharge-advisory-pacific",
-        "published_date": datetime.now(timezone.utc).isoformat()
-    },
-    {
-        "title": "Landslide Blocks Brenner Pass Rail Freight Transit Between Austria and Italy",
-        "content": "Torrential Alpine rains triggered a massive rockfall over the Brenner Pass railway line, completely shutting down cross-border freight train operations. Austrian rail operator OeBB predicts at least 10 days of clearing and structural repair.",
-        "category": "Railway Disruption",
-        "location": "Brenner Pass, Austria / Italy",
-        "source_name": "Federal Railroad Administration Bulletins",
-        "source_url": "https://railroads.dot.gov/newsroom/brenner-pass-interruption-bulletin",
-        "published_date": datetime.now(timezone.utc).isoformat()
+NOAA_ALERTS_URL = "https://api.weather.gov/alerts/active"
+
+
+def _collect_noaa_alerts(source: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], Optional[str]]:
+    """Fetch actual severe and extreme alerts from the public NOAA/NWS API."""
+    records = []
+    seen_alerts = set()
+    headers = {
+        "User-Agent": "LogisticsUpdateAI/1.0 (public weather alerts)",
+        "Accept": "application/geo+json",
     }
-]
+    try:
+        for severity in ("Extreme", "Severe"):
+            response = requests.get(
+                NOAA_ALERTS_URL,
+                params={
+                    "status": "actual",
+                    "message_type": "alert",
+                    "severity": severity,
+                },
+                headers=headers,
+                timeout=20,
+            )
+            response.raise_for_status()
+            payload = response.json()
+            for feature in payload.get("features", []):
+                properties = feature.get("properties") or {}
+                title = (properties.get("headline") or properties.get("event") or "").strip()
+                description = " ".join(
+                    str(properties.get(key) or "").strip()
+                    for key in ("description", "instruction")
+                    if properties.get(key)
+                )
+                alert_id = properties.get("id") or feature.get("id") or ""
+                alert_url = properties.get("web") or ""
+                if not is_valid_url(alert_url):
+                    alert_url = alert_id if is_valid_url(alert_id) else NOAA_ALERTS_URL
+                if (
+                    not title
+                    or len(description) < 5
+                    or alert_id in seen_alerts
+                ):
+                    continue
+                seen_alerts.add(alert_id)
+                records.append({
+                    "title": title,
+                    "content": description,
+                    "category": source.get("category", "Weather Disruption"),
+                    "location": properties.get("areaDesc") or "Unspecified",
+                    "source_name": "NOAA National Weather Service",
+                    "source_url": alert_url,
+                    "published_date": properties.get("sent") or properties.get("effective"),
+                    "is_demo": False,
+                })
+    except (requests.RequestException, ValueError) as exc:
+        return [], f"NOAA active alert feed failed: {exc}"
+
+    return records, None
 
 def collect_from_single_source(source: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], Optional[str]]:
-    """Scrapes a single source using Firecrawl API or falls back to sample generation.
+    """Scrapes a real public source or returns a configuration/request error.
     Returns (records_list, error_message).
     """
     url = source.get("url", "").strip()
@@ -69,26 +86,14 @@ def collect_from_single_source(source: Dict[str, Any]) -> Tuple[List[Dict[str, A
     if not is_valid_url(url):
         return [], f"Invalid URL provided: {url}"
 
+    if url.rstrip("/") == NOAA_ALERTS_URL:
+        return _collect_noaa_alerts(source)
+
     # Check if Firecrawl API is configured
     if not settings.is_firecrawl_active:
-        logger.info(f"Firecrawl API key not set. Using demonstration scraper for: {url}")
-        # Find matching demo item or synthesize one based on source
-        matched = [d for d in DEMO_LIVE_SCRAPED_FEEDS if d["source_url"] == url]
-        if matched:
-            record = dict(matched[0])
-        else:
-            record = {
-                "title": f"Operational Disruption Update from {name}",
-                "content": f"Monitoring feed from {url} reports active operational adjustments affecting regional freight schedules and modal transfers.",
-                "category": category,
-                "location": "Regional Hub",
-                "source_name": name,
-                "source_url": url,
-                "published_date": datetime.now(timezone.utc).isoformat(),
-            }
-        record["collected_at"] = datetime.now(timezone.utc).isoformat()
-        record["is_demo"] = True
-        return [record], None
+        message = f"FIRECRAWL_API_KEY is not configured; live scraping skipped for {url}."
+        logger.warning(message)
+        return [], message
 
     # Real Firecrawl SDK integration
     try:
@@ -120,7 +125,7 @@ def collect_from_single_source(source: Dict[str, Any]) -> Tuple[List[Dict[str, A
         }
         return [record], None
 
-    except Exception as e:
+    except (ImportError, requests.RequestException, ValueError, RuntimeError) as e:
         error_msg = f"Firecrawl exception on {url}: {str(e)}"
         logger.error(error_msg)
         return [], error_msg

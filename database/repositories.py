@@ -31,14 +31,18 @@ def _model_to_dict(obj: Any) -> Dict[str, Any]:
 
 def get_all_disruptions() -> List[Dict]:
     with SessionLocal() as db:
-        stmt = select(models.Disruption).order_by(desc(models.Disruption.collected_at))
+        stmt = (
+            select(models.Disruption)
+            .where(models.Disruption.is_demo.is_(False))
+            .order_by(desc(models.Disruption.collected_at))
+        )
         results = db.execute(stmt).scalars().all()
         return [_model_to_dict(r) for r in results]
 
 def get_disruption_by_id(event_id: str) -> Optional[Dict]:
     with SessionLocal() as db:
         obj = db.get(models.Disruption, event_id)
-        return _model_to_dict(obj) if obj else None
+        return _model_to_dict(obj) if obj and not obj.is_demo else None
 
 def create_disruption(data: Dict) -> Dict:
     with SessionLocal() as db:
@@ -64,9 +68,9 @@ def create_disruption(data: Dict) -> Dict:
             try:
                 pub_date = datetime.fromisoformat(pub_date.replace("Z", "+00:00"))
             except Exception:
-                pub_date = datetime.now(timezone.utc)
+                pub_date = None
         elif not isinstance(pub_date, datetime):
-            pub_date = datetime.now(timezone.utc)
+            pub_date = None
 
         disruption = models.Disruption(
             id=data.get("event_id") or data.get("id") or _gen_id(),
@@ -93,7 +97,11 @@ def create_disruption(data: Dict) -> Dict:
 
 def get_all_historical_events() -> List[Dict]:
     with SessionLocal() as db:
-        stmt = select(models.HistoricalEvent).order_by(desc(models.HistoricalEvent.created_at))
+        stmt = (
+            select(models.HistoricalEvent)
+            .where(models.HistoricalEvent.is_demo.is_(False))
+            .order_by(desc(models.HistoricalEvent.created_at))
+        )
         events = db.execute(stmt).scalars().all()
         result = []
         for ev in events:
@@ -106,8 +114,8 @@ def get_all_historical_events() -> List[Dict]:
                 d["response"] = resp_obj.response
                 d["outcome"] = resp_obj.outcome
             else:
-                d["response"] = "Standard rerouting protocols deployed."
-                d["outcome"] = "Delays contained within 48-72 hours."
+                d["response"] = ""
+                d["outcome"] = ""
             result.append(d)
         return result
 
@@ -119,7 +127,7 @@ def get_historical_event_by_id(event_id: str) -> Optional[Dict]:
             ev = db.execute(
                 select(models.HistoricalEvent).where(models.HistoricalEvent.event_id == event_id)
             ).scalar_one_or_none()
-        if not ev:
+        if not ev or ev.is_demo:
             return None
         d = _model_to_dict(ev)
         resp_obj = db.execute(
@@ -128,6 +136,9 @@ def get_historical_event_by_id(event_id: str) -> Optional[Dict]:
         if resp_obj:
             d["response"] = resp_obj.response
             d["outcome"] = resp_obj.outcome
+        else:
+            d["response"] = ""
+            d["outcome"] = ""
         return d
 
 def add_historical_event(data: Dict) -> Dict:
@@ -144,6 +155,15 @@ def add_historical_event(data: Dict) -> Dict:
         if existing:
             return _model_to_dict(existing)
 
+        published_date = data.get("published_date")
+        if isinstance(published_date, str):
+            try:
+                published_date = datetime.fromisoformat(published_date.replace("Z", "+00:00"))
+            except ValueError:
+                published_date = None
+        elif not isinstance(published_date, datetime):
+            published_date = None
+
         he = models.HistoricalEvent(
             id=he_id,
             event_id=ev_id,
@@ -155,19 +175,20 @@ def add_historical_event(data: Dict) -> Dict:
             status=data.get("status", "Resolved"),
             source_name=clean_text(data.get("source_name")) or "Historical Archive",
             source_url=str(data.get("source_url", "")),
-            is_demo=bool(data.get("is_demo", True)),
+            published_date=published_date,
+            is_demo=bool(data.get("is_demo", False)),
             created_at=datetime.now(timezone.utc),
         )
         db.add(he)
         db.commit()
 
         # If operational response and outcome provided, attach them
-        if data.get("response") or data.get("outcome"):
+        if data.get("response") and data.get("outcome"):
             op_resp = models.OperationalResponse(
                 id=_gen_id(),
                 historical_event_id=he.id,
-                response=clean_text(data.get("response") or "Coordinated contingency rerouting."),
-                outcome=clean_text(data.get("outcome") or "Resolved with mitigated dwell time."),
+                response=clean_text(data["response"]),
+                outcome=clean_text(data["outcome"]),
                 created_at=datetime.now(timezone.utc),
             )
             db.add(op_resp)
@@ -237,7 +258,7 @@ def delete_source(source_id: str) -> bool:
 # Reports CRUD
 # ---------------------------------------------------------------------------
 
-def create_report(disruption_id: str, content: str, provider: str = "Deterministic Fallback") -> Dict:
+def create_report(disruption_id: str, content: str, provider: str) -> Dict:
     with SessionLocal() as db:
         rep = models.Report(
             id=_gen_id(),
@@ -253,14 +274,22 @@ def create_report(disruption_id: str, content: str, provider: str = "Determinist
 
 def get_all_reports() -> List[Dict]:
     with SessionLocal() as db:
-        stmt = select(models.Report).order_by(desc(models.Report.generated_at))
+        stmt = (
+            select(models.Report)
+            .join(models.Disruption)
+            .where(models.Disruption.is_demo.is_(False))
+            .order_by(desc(models.Report.generated_at))
+        )
         results = db.execute(stmt).scalars().all()
         return [_model_to_dict(r) for r in results]
 
 def get_report_by_id(report_id: str) -> Optional[Dict]:
     with SessionLocal() as db:
         obj = db.get(models.Report, report_id)
-        return _model_to_dict(obj) if obj else None
+        if not obj:
+            return None
+        disruption = db.get(models.Disruption, obj.disruption_id)
+        return _model_to_dict(obj) if disruption and not disruption.is_demo else None
 
 # ---------------------------------------------------------------------------
 # Collection Logs
@@ -293,12 +322,18 @@ def get_collection_logs(limit: int = 20) -> List[Dict]:
 
 def get_overview_stats() -> Dict[str, Any]:
     with SessionLocal() as db:
-        total_disruptions = db.query(models.Disruption).count()
-        active_disruptions = db.query(models.Disruption).filter(models.Disruption.status == "Active").count()
-        critical_disruptions = db.query(models.Disruption).filter(models.Disruption.severity == "Critical").count()
-        high_disruptions = db.query(models.Disruption).filter(models.Disruption.severity == "High").count()
-        historical_stored = db.query(models.HistoricalEvent).count()
-        ai_reports_generated = db.query(models.Report).count()
+        real_disruptions = models.Disruption.is_demo.is_(False)
+        total_disruptions = db.query(models.Disruption).filter(real_disruptions).count()
+        active_disruptions = db.query(models.Disruption).filter(real_disruptions, models.Disruption.status == "Active").count()
+        critical_disruptions = db.query(models.Disruption).filter(real_disruptions, models.Disruption.severity == "Critical").count()
+        high_disruptions = db.query(models.Disruption).filter(real_disruptions, models.Disruption.severity == "High").count()
+        historical_stored = db.query(models.HistoricalEvent).filter(models.HistoricalEvent.is_demo.is_(False)).count()
+        ai_reports_generated = (
+            db.query(models.Report)
+            .join(models.Disruption)
+            .filter(real_disruptions)
+            .count()
+        )
         sources_count = db.query(models.Source).count()
 
         # Last successful collection
@@ -322,7 +357,7 @@ def get_overview_stats() -> Dict[str, Any]:
         }
 
 # ---------------------------------------------------------------------------
-# Default Seeding for Clean Demo / Initial Start
+# Default public monitoring sources
 # ---------------------------------------------------------------------------
 
 DEFAULT_SOURCES = [
@@ -342,8 +377,8 @@ DEFAULT_SOURCES = [
         "category": "Shipping Delay"
     },
     {
-        "name": "NOAA National Marine Weather Center",
-        "url": "https://www.weather.gov/marine/",
+        "name": "NOAA National Weather Service Active Alerts",
+        "url": "https://api.weather.gov/alerts/active",
         "category": "Weather Disruption"
     },
     {
@@ -353,100 +388,18 @@ DEFAULT_SOURCES = [
     }
 ]
 
-DEFAULT_DISRUPTIONS = [
-    {
-        "event_id": "demo-dis-001",
-        "title": "Port of Rotterdam Terminal Gate Automation Outage",
-        "description": "Terminal operating system connectivity failure causes 12-hour container gate closures and heavy arterial drayage truck congestion.",
-        "category": "Port Disruption",
-        "location": "Rotterdam, Netherlands",
-        "severity": "High",
-        "status": "Active",
-        "source_name": "Maritime Executive Live Wire",
-        "source_url": "https://maritime-executive.com/article/rotterdam-gate-system-outage",
-        "is_demo": True
-    },
-    {
-        "event_id": "demo-dis-002",
-        "title": "Typhoon Malakas Severe Swells Halt Shanghai & Ningbo Port Operations",
-        "description": "Category 3 typhoon brings 8-meter storm surges, forcing Port of Shanghai and Ningbo-Zhoushan to suspend all container vessel berthing for 48 hours.",
-        "category": "Weather Disruption",
-        "location": "Shanghai / Ningbo, China",
-        "severity": "Critical",
-        "status": "Active",
-        "source_name": "NOAA National Marine Weather Center",
-        "source_url": "https://www.weather.gov/marine/typhoon-east-asia-advisory",
-        "is_demo": True
-    },
-    {
-        "event_id": "demo-dis-003",
-        "title": "Red Sea Shipping Rerouting via Cape of Good Hope Extends Transit Times",
-        "description": "Major ocean carriers continue routing container fleets around Africa due to maritime security risks in Bab-el-Mandeb Strait, adding 10-14 days transit.",
-        "category": "Shipping Delay",
-        "location": "Red Sea / Suez Canal Corridor",
-        "severity": "High",
-        "status": "Active",
-        "source_name": "FreightWaves Supply Chain Alerts",
-        "source_url": "https://www.freightwaves.com/news/red-sea-carrier-rerouting-update",
-        "is_demo": True
-    },
-    {
-        "event_id": "demo-dis-004",
-        "title": "Class 1 Midwest Freight Rail Winter Freeze Corridor Restrictions",
-        "description": "Sub-zero temperatures across Chicago interchange hub require train length reductions and reduce diesel locomotive brake efficiency.",
-        "category": "Railway Disruption",
-        "location": "Chicago, IL, USA",
-        "severity": "Medium",
-        "status": "Active",
-        "source_name": "Federal Railroad Administration Bulletins",
-        "source_url": "https://railroads.dot.gov/newsroom/midwest-winter-speed-restrictions",
-        "is_demo": True
-    },
-    {
-        "event_id": "demo-dis-005",
-        "title": "Panama Canal Transit Slot Conservation Advisory",
-        "description": "Water levels at Gatun Lake require daily transit slots capped at 32 vessels, increasing auction slot premiums for neo-Panamax vessels.",
-        "category": "Shipping Delay",
-        "location": "Panama Canal, Panama",
-        "severity": "Medium",
-        "status": "Active",
-        "source_name": "Panama Canal Authority Notices",
-        "source_url": "https://pancanal.com/en/notices/advisory-a-08-2024",
-        "is_demo": True
-    }
-]
-
 def seed_default_data_if_empty():
-    """Seed initial sources, disruptions, and historical database records if empty."""
+    """Register real public sources without seeding synthetic disruption records."""
     with SessionLocal() as db:
-        # 1. Seed sources
-        if db.query(models.Source).count() == 0:
-            for s in DEFAULT_SOURCES:
+        existing_urls = set(db.execute(select(models.Source.url)).scalars())
+        for source in DEFAULT_SOURCES:
+            if source["url"] not in existing_urls:
                 db.add(models.Source(
                     id=_gen_id(),
-                    name=s["name"],
-                    url=s["url"],
-                    category=s["category"],
+                    name=source["name"],
+                    url=source["url"],
+                    category=source["category"],
                     active=True,
                     created_at=datetime.now(timezone.utc)
                 ))
-            db.commit()
-
-        # 2. Seed disruptions
-        if db.query(models.Disruption).count() == 0:
-            for d in DEFAULT_DISRUPTIONS:
-                db.add(models.Disruption(
-                    id=d["event_id"],
-                    title=d["title"],
-                    description=d["description"],
-                    category=d["category"],
-                    location=d["location"],
-                    severity=d["severity"],
-                    status=d["status"],
-                    source_name=d["source_name"],
-                    source_url=d["source_url"],
-                    published_date=datetime.now(timezone.utc),
-                    collected_at=datetime.now(timezone.utc),
-                    is_demo=True
-                ))
-            db.commit()
+        db.commit()

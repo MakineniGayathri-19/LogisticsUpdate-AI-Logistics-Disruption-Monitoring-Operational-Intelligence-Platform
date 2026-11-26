@@ -7,10 +7,35 @@ Validates:
 """
 import pytest
 from database.db import init_db
+from database import repositories
 from backend.services.event_comparison import compare_disruption_with_history
 
 def setup_module():
     init_db()
+    repositories.add_historical_event({
+        "event_id": "test-port-precedent",
+        "title": "Los Angeles port berth congestion and container dwell backlog",
+        "description": "Rail car shortage and terminal congestion caused container dwell delays.",
+        "category": "Port Disruption",
+        "location": "Los Angeles, CA, USA",
+        "severity": "High",
+        "source_name": "Port authority archive",
+        "source_url": "https://archive.example/los-angeles-congestion",
+        "response": "Rerouted priority cargo to a nearby terminal.",
+        "outcome": "Backlog reduced over the following week.",
+    })
+    repositories.add_historical_event({
+        "event_id": "test-winter-precedent",
+        "title": "Chicago winter blizzard freezes freight rail switches",
+        "description": "Freezing temperatures and snow halted freight trains across the Midwest.",
+        "category": "Weather Disruption",
+        "location": "Chicago, IL, USA",
+        "severity": "Critical",
+        "source_name": "Rail operator archive",
+        "source_url": "https://archive.example/chicago-winter",
+        "response": "Deployed crews to clear switches and reroute freight.",
+        "outcome": "Rail service resumed after the storm passed.",
+    })
 
 def test_compare_similar_port_incident():
     """Verify that a port dwell disruption matches historical port incidents with high score."""

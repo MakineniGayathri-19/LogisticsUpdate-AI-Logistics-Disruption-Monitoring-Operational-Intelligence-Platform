@@ -96,10 +96,10 @@ def assign_rule_based_severity(title: str, description: str) -> Tuple[str, str]:
 
     return "Unknown", "No specific severity keyword indicators matched; classified as Unknown."
 
-def clean_and_normalize_date(date_val: Any) -> str:
-    """Normalize various date formats into standard ISO 8601 UTC timestamp."""
+def clean_and_normalize_date(date_val: Any) -> str | None:
+    """Normalize source-provided dates without inventing timestamps."""
     if not date_val:
-        return datetime.now(timezone.utc).isoformat()
+        return None
     if isinstance(date_val, datetime):
         if date_val.tzinfo is None:
             return date_val.replace(tzinfo=timezone.utc).isoformat()
@@ -119,7 +119,7 @@ def clean_and_normalize_date(date_val: Any) -> str:
                     return dt.isoformat()
                 except Exception:
                     continue
-    return datetime.now(timezone.utc).isoformat()
+    return None
 
 def process_raw_records(records: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """Clean, filter, deduplicate, and validate raw scraped records using Pandas.
@@ -143,6 +143,12 @@ def process_raw_records(records: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
 
     # Load into Pandas DataFrame for tabular data processing
     df = pd.DataFrame(records)
+
+    # Never include explicitly simulated rows in real collection outputs.
+    if "is_demo" in df.columns:
+        df = df[~df["is_demo"].fillna(False).astype(bool)]
+    if df.empty:
+        return []
 
     # 1. Remove empty or corrupt records
     if "title" not in df.columns:
@@ -201,10 +207,7 @@ def process_raw_records(records: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         df["published_date"] = None
 
     df["published_date"] = df["published_date"].apply(clean_and_normalize_date)
-    if "is_demo" not in df.columns:
-        df["is_demo"] = False
-    else:
-        df["is_demo"] = df["is_demo"].fillna(False).astype(bool)
+    df["is_demo"] = False
     df["collected_at"] = datetime.now(timezone.utc).isoformat()
     df["status"] = "Active"
     df["event_id"] = [uuid.uuid4().hex[:12] for _ in range(len(df))]

@@ -1,11 +1,17 @@
 """FastAPI application entrypoint for LogisticsUpdate AI backend.
 """
 from contextlib import asynccontextmanager
+from pathlib import Path
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from database.db import init_db
 from backend.api.routes import router as api_router
+
+STATIC_DIR = Path(__file__).resolve().parent / "static"
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -29,13 +35,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 app.include_router(api_router, prefix="/api")
 
 @app.get("/")
 async def root():
-    return {
-        "platform": "LogisticsUpdate AI",
-        "description": "AI-Powered Logistics Disruption Monitoring & Operational Intelligence",
-        "docs_url": "/docs",
-        "health_url": "/api/health"
-    }
+    return FileResponse(STATIC_DIR / "index.html")

@@ -1,97 +1,48 @@
-"""One-Command Runner for LogisticsUpdate AI.
-Starts both the FastAPI Backend and Streamlit Frontend in a single terminal.
-Automatically clears busy ports and uses .venv if present.
-Press Ctrl+C to stop both servers simultaneously.
-"""
+"""Start the LogisticsUpdate AI FastAPI application."""
+
 import os
 import sys
+import threading
+import time
+import webbrowser
 from pathlib import Path
+from urllib.error import HTTPError
+from urllib.request import urlopen
 
 BASE_DIR = Path(__file__).resolve().parent
 VENV_PYTHON = BASE_DIR / ".venv" / "bin" / "python"
 
-# If user ran with system/conda python instead of .venv, re-launch using .venv python
-if VENV_PYTHON.exists() and sys.executable != str(VENV_PYTHON):
+if __name__ == "__main__" and VENV_PYTHON.exists() and sys.executable != str(VENV_PYTHON):
     os.execv(str(VENV_PYTHON), [str(VENV_PYTHON), __file__] + sys.argv[1:])
 
-import time
-import subprocess
-import signal
+import uvicorn
 
-def free_port(port: int):
-    """Cleanly terminate any stale process holding the port."""
-    try:
-        output = subprocess.check_output(["lsof", "-ti", f":{port}"], stderr=subprocess.DEVNULL).decode().strip()
-        if output:
-            for pid_str in output.split("\n"):
-                pid = int(pid_str.strip())
-                if pid != os.getpid():
-                    os.kill(pid, signal.SIGKILL)
-            time.sleep(0.5)
-    except Exception:
-        pass
 
-def main():
-    print("==================================================================")
-    print("🚢 LogisticsUpdate AI – Starting Unified Application Platform")
-    print("==================================================================")
+def _open_dashboard_when_ready(url: str) -> None:
+    """Open the dashboard after the local server starts responding."""
+    deadline = time.monotonic() + 30
+    while time.monotonic() < deadline:
+        try:
+            with urlopen(url, timeout=1):
+                break
+        except HTTPError:
+            break
+        except OSError:
+            time.sleep(0.25)
+    else:
+        return
 
-    # Clean any stale processes on ports 8000 & 8501
-    free_port(8000)
-    free_port(8501)
+    if not webbrowser.open_new_tab(url):
+        print(f"Open the dashboard in your browser: {url}")
 
-    python_exe = str(VENV_PYTHON) if VENV_PYTHON.exists() else sys.executable
-
-    # 1. Initialize SQLite Database
-    print("\n📦 [1/3] Checking & initializing database...")
-    try:
-        from database.db import init_db
-        init_db()
-        print("    ✓ Database tables initialized.")
-    except Exception as e:
-        print(f"    ⚠️ Warning during DB init: {e}")
-
-    # 2. Start FastAPI Backend in background
-    print("\n⚡ [2/3] Starting FastAPI Backend on http://127.0.0.1:8000...")
-    backend_cmd = [
-        python_exe, "-m", "uvicorn", "app.main:app",
-        "--host", "127.0.0.1",
-        "--port", "8000",
-        "--log-level", "warning"
-    ]
-    backend_proc = subprocess.Popen(backend_cmd, cwd=str(BASE_DIR))
-
-    # Give backend a moment to boot
-    time.sleep(2)
-
-    # 3. Start Streamlit Frontend
-    print("🖥️ [3/3] Starting Streamlit Frontend on http://localhost:8501...")
-    frontend_cmd = [
-        python_exe, "-m", "streamlit", "run", "app/frontend.py",
-        "--server.headless", "false",
-        "--browser.serverAddress", "localhost",
-        "--server.port", "8501"
-    ]
-
-    print("\n" + "="*66)
-    print("✅ All services active!")
-    print("👉 Browser opening at: http://localhost:8501")
-    print("👉 API Documentation:   http://127.0.0.1:8000/docs")
-    print("👉 Press Ctrl+C in this terminal anytime to stop both servers.")
-    print("="*66 + "\n")
-
-    frontend_proc = None
-    try:
-        frontend_proc = subprocess.Popen(frontend_cmd, cwd=str(BASE_DIR))
-        frontend_proc.wait()
-    except KeyboardInterrupt:
-        print("\n🛑 Shutting down LogisticsUpdate AI...")
-    finally:
-        if frontend_proc and frontend_proc.poll() is None:
-            frontend_proc.terminate()
-        if backend_proc and backend_proc.poll() is None:
-            backend_proc.terminate()
-        print("✓ All servers cleanly stopped. Goodbye!")
 
 if __name__ == "__main__":
-    main()
+    os.chdir(BASE_DIR)
+    port = int(os.getenv("PORT", "8000"))
+    dashboard_url = f"http://127.0.0.1:{port}/"
+    threading.Thread(
+        target=_open_dashboard_when_ready,
+        args=(dashboard_url,),
+        daemon=True,
+    ).start()
+    uvicorn.run("app.main:app", host="127.0.0.1", port=port)
